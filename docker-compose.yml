@@ -7,13 +7,13 @@ services:
     image: vllm-server:${VLLM_VERSION:-latest}
     container_name: vllm
     ipc: host
-    restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file: .env
     environment:
       HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
     volumes:
-      - hf-cache:/root/.cache/huggingface
+      - ${HF_CACHE_DIR:-hf-cache}:/root/.cache/huggingface
     command: >
       --model ${MODEL}
       --served-model-name ${SERVED_NAME}
@@ -43,7 +43,6 @@ services:
   dcgm-exporter:
     image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.9-3.6.1-ubuntu22.04
     container_name: dcgm-exporter
-    restart: unless-stopped
     cap_add: [SYS_ADMIN]
     deploy:
       resources:
@@ -61,17 +60,17 @@ services:
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: prometheus
-    restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=${PROM_RETENTION:-15d}
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prom-data:/prometheus
+      - ./volumes/prometheus:/prometheus
     ports:
       - "9090:9090"
     depends_on:
       - vllm
+    env_file: .env
     deploy:
       resources:
         limits:
@@ -84,7 +83,7 @@ services:
   grafana:
     image: grafana/grafana:11.3.0
     container_name: grafana
-    restart: unless-stopped
+    env_file: .env
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
@@ -92,7 +91,7 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
+      - ./volumes/grafana:/var/lib/grafana
     ports:
       - "3000:3000"
     depends_on:
@@ -108,5 +107,3 @@ services:
 
 volumes:
   hf-cache:
-  prom-data:
-  grafana-data:
