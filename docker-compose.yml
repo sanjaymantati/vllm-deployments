@@ -8,10 +8,11 @@ services:
     container_name: vllm
     ipc: host
     ports:
-      - "8000:8000"
+      - "${BIND_ADDR:-127.0.0.1}:8000:8000"
     env_file: .env
     environment:
       HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
+      OMP_NUM_THREADS: ${VLLM_CPUS:-4}
     volumes:
       - ${HF_CACHE_DIR:-hf-cache}:/root/.cache/huggingface
     command: >
@@ -20,14 +21,14 @@ services:
       --max-model-len ${MAX_MODEL_LEN}
       --gpu-memory-utilization ${GPU_MEM_UTIL}
       --tensor-parallel-size ${TP_SIZE}
-      --api-key ${VLLM_API_KEY}
+      --api-key ${VLLM_API_KEY:?set VLLM_API_KEY in .env}
       --host 0.0.0.0 --port 8000
       ${EXTRA_ARGS:-}
     deploy:
       resources:
         limits:
-          cpus: "4"
-          memory: 10G
+          cpus: "${VLLM_CPUS:-4}"
+          memory: ${VLLM_MEM_LIMIT:-10G}
         reservations:
           devices:
             - driver: nvidia
@@ -50,8 +51,6 @@ services:
           cpus: "0.50"
           memory: 512M
         reservations:
-          cpus: "0.50"
-          memory: 512M
           devices:
             - driver: nvidia
               count: all
@@ -67,7 +66,7 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./volumes/prometheus:/prometheus
     ports:
-      - "9090:9090"
+      - "${BIND_ADDR:-127.0.0.1}:9090:9090"
     depends_on:
       - vllm
     env_file: .env
@@ -86,14 +85,14 @@ services:
     env_file: .env
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ./volumes/grafana:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "${BIND_ADDR:-127.0.0.1}:3000:3000"
     depends_on:
       - prometheus
     deploy:
